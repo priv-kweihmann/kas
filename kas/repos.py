@@ -236,9 +236,17 @@ class RepoImpl(Repo):
                 logging.warning('Repo %s is dirty - no checkout', self.name)
                 return
 
-        (_, output) = run_cmd(self.resolve_branch_cmd(),
-                              cwd=self.path, fail=False)
-        if output:
+        # First try to resolve the refspec in the local clone
+        # if not in force_checkout mode
+        remote = get_context().force_checkout
+        (_, output) = run_cmd(self.resolve_branch_cmd(remote=remote),
+                              cwd=self.path, fail=False, liveupdate=False)
+
+        if not output and not get_context().force_checkout:
+            # if refspec cannot be resolved locally try remote
+            (_, output) = run_cmd(self.resolve_branch_cmd(remote=True),
+                                  cwd=self.path, fail=False)
+        if (output or "").strip() != self.refspec:
             desired_ref = output.strip()
             branch = True
         else:
@@ -358,9 +366,10 @@ class GitRepo(RepoImpl):
     def is_dirty_cmd(self):
         return ['git', 'status', '-s']
 
-    def resolve_branch_cmd(self):
+    def resolve_branch_cmd(self, remote=True):
+        prefix = "origin/" if remote else ""
         return ['git', 'rev-parse', '--verify', '-q',
-                'origin/{refspec}'.format(refspec=self.refspec)]
+                '{pre}{refspec}'.format(pre=prefix, refspec=self.refspec)]
 
     def checkout_cmd(self, desired_ref, branch):
         cmd = ['git', 'checkout', '-q', desired_ref]
@@ -404,7 +413,7 @@ class MercurialRepo(RepoImpl):
     def is_dirty_cmd(self):
         return ['hg', 'diff']
 
-    def resolve_branch_cmd(self):
+    def resolve_branch_cmd(self, remote=False):
         # We never need to care about creating tracking branches in mercurial
         return ['false']
 
