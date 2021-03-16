@@ -32,6 +32,7 @@
         kas build kas-project.yml
 """
 
+import argparse
 import logging
 import subprocess
 import sys
@@ -60,9 +61,8 @@ class Build:
         """
             Setup the argument parser for the build plugin
         """
-
         parser.add_argument('extra_bitbake_args',
-                            nargs='*',
+                            nargs=argparse.REMAINDER,
                             help='Extra arguments to pass to bitbake')
         parser.add_argument('--target',
                             action='append',
